@@ -84,7 +84,7 @@ class TapGoogleAnalytics(Tap):
         # Optional
         th.Property(
             "reports",
-            th.StringType,
+            th.OrType([th.StringType(), th.ArrayType(th.ObjectType())]),  # Allow either a string (filepath) or a list of objects
             description="Google Analytics Reports Definition",
         ),
         th.Property(
@@ -130,18 +130,24 @@ class TapGoogleAnalytics(Tap):
             "defaults", "default_report_definition.json"
         )
 
-        report_def_file = self.config.get("reports", default_reports)
-        if Path(report_def_file).is_file():
+        report_def = self.config.get("reports", default_reports)
+
+        # Check if reports is a list
+        if isinstance(report_def, list):
+            return report_def
+
+        # If it's not a list, assume it's a path to a JSON file and try to read from it
+        if Path(report_def).is_file():
             try:
-                with open(report_def_file) as f:
+                with open(report_def) as f:
                     return json.load(f)
             except ValueError:
                 self.logger.critical(
-                    f"The JSON definition in '{report_def_file}' has errors"
+                    f"The JSON definition in '{report_def}' has errors"
                 )
                 sys.exit(1)
         else:
-            self.logger.critical(f"'{report_def_file}' file not found")
+            self.logger.critical(f"'{report_def}' file not found")
             sys.exit(1)
 
     def _fetch_valid_api_metadata(self) -> Tuple[dict, dict]:
